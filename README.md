@@ -1,3 +1,5 @@
+# Cache library
+
 ## How to use LRUCache
 
 ```javascript
@@ -47,7 +49,6 @@ class InMemoryStorage implements IStorage {
 
 
 ```
-
 
 ## How to use memoize with cache
 
