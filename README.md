@@ -3,7 +3,24 @@
 ## How to use LRUCache
 
 ```javascript
-import LRUCache, { IStorage } from './index'
+import { LRUCache } from './index'
+
+(async () => {
+    const cache = new LRUCache<string>(); // by default use new Map() as storage and 100 of capacity
+
+    await cache.set('1', 'Hello1'); // the item 1 is added and is set as top 
+    await cache.set('2', 'Hello2'); // the item 2 is added and is set as top
+    await cache.set('3', 'Hello3'); // the item 3 is added and is set as top
+    await cache.set('4', 'Hello4'); // the item 4 is added and is set as top
+    await cache.set('5', 'Hello5'); // the item 5 is added and is set as top
+    await cache.set('6', 'Hello6'); // the item 6 is added and is set as top
+    await cache.get('2'); // the item 2 is used and then is set as top
+})()
+```
+
+## How to use LRUCache specifying a storage memory and capacity 
+```javascript
+import { LRUCache, IStorage, memoize } from './index'
 
 class InMemoryStorage implements IStorage {
     private __data: Record<string, string | undefined>;
@@ -53,7 +70,7 @@ class InMemoryStorage implements IStorage {
 ## How to use memoize with cache
 
 ```javascript
-import LRUCache, { IStorage, memoize } from './index'
+import {LRUCache, IStorage, memoize } from './index'
 
 class InMemoryStorage implements IStorage {
     private __data: Record<string, string | undefined>;

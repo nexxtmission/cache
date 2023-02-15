@@ -1,7 +1,9 @@
+import md5 from 'crypto-js/md5';
+
 export interface IStorage {
     get(key: string): string | undefined | Promise<string | undefined>;
     delete(key: string): boolean | Promise<boolean>;
-    set(key: string, value: string): void | Promise<void>;
+    set(key: string, value: string): this | void | Promise<void>;
 }
 
 interface INode<V> {
@@ -10,6 +12,8 @@ interface INode<V> {
     value: V;
     key: string;
 }
+
+export const generateKey = (str: string) => String(md5(str));
 
 export function memoize({
     func,
@@ -27,24 +31,29 @@ export function memoize({
 
     }
     const memoized: any = async function (...args: any[]) {
-        const key = keyResolver ? keyResolver(...args) : JSON.stringify(args);
-        const valueFromCache = await cache.get(key);
-        if (valueFromCache) {
-            return valueFromCache;
+        let functionResult;
+        try {            
+            const key = keyResolver ? keyResolver(...args) : generateKey(JSON.stringify(args));
+            const valueFromCache = await cache.get(key);
+            if (valueFromCache) {
+                return valueFromCache;
+            }
+            functionResult = await func(...args);
+            await cache.set(key, functionResult);
+        } catch (error) {
+            console.error(error)
         }
-        var result = await func(...args);
-        await cache.set(key, result);
-        return result;
+        return functionResult;
     };
     return memoized;
 }
 
-export default class LRUCache<V> {
+export class LRUCache<V> {
     private __headKeyPointer = 'lru-cache-head-key-pointer';
     private __tailKeyPointer = 'lru-cache-tail-key-pointer';
     private __sizeKey = 'lru-cache-size';
 
-    constructor(private storage: IStorage, readonly capacity: number) { }
+    constructor(private storage: IStorage = new Map(), readonly capacity: number = 100) { }
     private async _getNode(key: string): Promise<INode<V> | undefined> {
         const serializedNode = await this.storage.get(key);
         if (serializedNode) {
