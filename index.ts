@@ -1,7 +1,7 @@
 export interface IStorage {
     get(key: string): string | undefined | Promise<string | undefined>;
     delete(key: string): boolean | Promise<boolean>;
-    set(key: string, value: string): void | Promise<void>;
+    set(key: string, value: string): this | void | Promise<void>;
 }
 
 interface INode<V> {
@@ -39,12 +39,12 @@ export function memoize({
     return memoized;
 }
 
-export default class LRUCache<V> {
+export class LRUCache<V> {
     private __headKeyPointer = 'lru-cache-head-key-pointer';
     private __tailKeyPointer = 'lru-cache-tail-key-pointer';
     private __sizeKey = 'lru-cache-size';
 
-    constructor(private storage: IStorage, readonly capacity: number) { }
+    constructor(private storage: IStorage = new Map(), readonly capacity: number = 100) { }
     private async _getNode(key: string): Promise<INode<V> | undefined> {
         const serializedNode = await this.storage.get(key);
         if (serializedNode) {

@@ -1,4 +1,4 @@
-import LRUCache, { IStorage, memoize } from './index'
+import { LRUCache, IStorage, memoize } from './index'
 
 class InMemoryStorage implements IStorage {
     private __data: Record<string, string | undefined>;
@@ -50,8 +50,7 @@ const expensiveCalculation = async (arg1: number, arg2: number) => {
 }
 
 (async () => {    
-    const cacheStorage = new InMemoryStorage();
-    const cache = new LRUCache<string>(cacheStorage, 3);
+    const cache = new LRUCache(new Map(), 5); // a new Map() and capacity 100 is used by default
     const expensiveCalculationMemoized = memoize({
         func: expensiveCalculation,
         cache,
