@@ -116,3 +116,16 @@ const expensiveCalculation = async (arg1: number, arg2: number) => {
 })()
 
 ```
+
+## How to use logger with memoize
+```javascript
+    const expensiveCalculationMemoized = memoize({
+        func: expensiveCalculation,
+        cache,
+        logger: {
+            cacheUsed: () => console.log('CACHE USED'),
+            funcCalled: () => console.log('FUNCTION CALLED'),
+            error: err => console.error(err)
+        }
+    });
+```
