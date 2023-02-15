@@ -18,7 +18,8 @@ export const generateKey = (str: string) => String(md5(str));
 export function memoize({
     func,
     keyResolver,
-    cache
+    cache,
+    logger = {cacheUsed: ()=>{}, funcCalled: ()=>{}, error: () => {}}
 }: any) {
     if (
         typeof func != 'function' ||
@@ -28,7 +29,9 @@ export function memoize({
     }
     if ((cache != null && (typeof cache.get != 'function' || typeof cache.set != 'function'))) {
         throw new TypeError('Expected cache');
-
+    }
+    if(!logger || typeof logger.cacheUsed != 'function' || typeof logger.funcCalled != 'function' || typeof logger.error != 'function'){
+        throw new TypeError('Expected logger.cacheUsed, logger.funcCalled and logger.error must be functions');
     }
     const memoized: any = async function (...args: any[]) {
         let functionResult;
@@ -36,14 +39,16 @@ export function memoize({
             const key = keyResolver ? keyResolver(...args) : generateKey(JSON.stringify(args));
             const valueFromCache = await cache.get(key);
             if (valueFromCache) {
+                logger?.cacheUsed();
                 return valueFromCache;
             }
+            logger?.funcCalled();
             functionResult = await func(...args);
             await cache.set(key, functionResult);
         } catch (error) {
-            console.error(error)
+            logger?.error(error);
         }
-        return functionResult;
+        return functionResult || func(...args);
     };
     return memoized;
 }
