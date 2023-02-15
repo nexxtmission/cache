@@ -1,3 +1,5 @@
+import md5 from 'crypto-js/md5';
+
 export interface IStorage {
     get(key: string): string | undefined | Promise<string | undefined>;
     delete(key: string): boolean | Promise<boolean>;
@@ -10,6 +12,8 @@ interface INode<V> {
     value: V;
     key: string;
 }
+
+export const generateKey = (str: string) => String(md5(str));
 
 export function memoize({
     func,
@@ -27,14 +31,19 @@ export function memoize({
 
     }
     const memoized: any = async function (...args: any[]) {
-        const key = keyResolver ? keyResolver(...args) : JSON.stringify(args);
-        const valueFromCache = await cache.get(key);
-        if (valueFromCache) {
-            return valueFromCache;
+        let functionResult;
+        try {            
+            const key = keyResolver ? keyResolver(...args) : generateKey(JSON.stringify(args));
+            const valueFromCache = await cache.get(key);
+            if (valueFromCache) {
+                return valueFromCache;
+            }
+            functionResult = await func(...args);
+            await cache.set(key, functionResult);
+        } catch (error) {
+            console.error(error)
         }
-        var result = await func(...args);
-        await cache.set(key, result);
-        return result;
+        return functionResult;
     };
     return memoized;
 }
