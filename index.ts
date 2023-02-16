@@ -39,14 +39,14 @@ export function memoize({
             const key = keyResolver ? keyResolver(...args) : generateKey(JSON.stringify(args));
             const valueFromCache = await cache.get(key);
             if (valueFromCache) {
-                logger?.cacheUsed();
+                logger?.cacheUsed(...args);
                 return valueFromCache;
             }
-            logger?.funcCalled();
+            logger?.funcCalled(...args);
             functionResult = await func(...args);
             await cache.set(key, functionResult);
         } catch (error) {
-            logger?.error(error);
+            logger?.error(error, ...args);
         }
         return functionResult || func(...args);
     };
