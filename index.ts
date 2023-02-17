@@ -56,9 +56,10 @@ export function memoize({
 export class LRUCache<V> {
     private __headKeyPointer = 'lru-cache-head-key-pointer';
     private __tailKeyPointer = 'lru-cache-tail-key-pointer';
+    private __charsSizeKey = 'lru-cache-characters-size';
     private __sizeKey = 'lru-cache-size';
 
-    constructor(private storage: IStorage = new Map(), readonly capacity: number = 100) { }
+    constructor(private storage: IStorage = new Map(), readonly capacity: number = 100, readonly charsCapacity?: number) { }
     private async _getNode(key: string): Promise<INode<V> | undefined> {
         const serializedNode = await this.storage.get(key);
         if (serializedNode) {
@@ -94,9 +95,13 @@ export class LRUCache<V> {
         }
         return undefined;
     }
+    private _getMetadataEstimatedCharsSize() {
+        return this.__sizeKey.length+this.__charsSizeKey.length+this.__headKeyPointer.length+this.__tailKeyPointer.length + 200;
+    }
     private async _initialize(newNode: INode<V>) {
         await this.storage.set(this.__tailKeyPointer, newNode.key);
         await this.storage.set(this.__headKeyPointer, newNode.key);
+        await this.storage.set(this.__charsSizeKey, String(this._getMetadataEstimatedCharsSize()))
         await this._setNode(newNode.key, newNode);
         return;
     }
@@ -113,10 +118,14 @@ export class LRUCache<V> {
             }
         }
         currentHead?.key && await this.storage.delete(currentHead.key);
+        return currentHead;
     }
 
-    public async _getSize(): Promise<number> {
+    private async _getSize(): Promise<number> {
         return Number(this.storage.get(this.__sizeKey)) || 0;
+    }
+    private async _getCharsSize(): Promise<number> {
+        return Number(this.storage.get(this.__charsSizeKey)) || 0;
     }
     private async _increaseSize(): Promise<number> {
         const currentSize = await this._getSize();
@@ -124,10 +133,22 @@ export class LRUCache<V> {
         await this.storage.set(this.__sizeKey, JSON.stringify(newSize));
         return newSize;
     }
-    private async _decreaseSize(): Promise<number> {
+    private async _decreaseSize(itemsRemoved: number=1): Promise<number> {
         const currentSize = await this._getSize();
-        const newSize = (currentSize - 1) || 0;
+        const newSize = (currentSize - itemsRemoved) || 0;
         await this.storage.set(this.__sizeKey, JSON.stringify(newSize));
+        return newSize;
+    }
+    private async _increaseCharsSize(charsAdded: number): Promise<number> {
+        const currentSize = await this._getCharsSize();
+        const newSize = currentSize + charsAdded;
+        await this.storage.set(this.__charsSizeKey, JSON.stringify(newSize));
+        return newSize;
+    }
+    private async _decreaseCharsSize(charsRemoved: number): Promise<number> {
+        const currentSize = await this._getCharsSize();
+        const newSize = (currentSize - charsRemoved) || 0;
+        await this.storage.set(this.__charsSizeKey, JSON.stringify(newSize));
         return newSize;
     }
     private async __setAsTop(node: INode<V>): Promise<void> {
@@ -158,6 +179,54 @@ export class LRUCache<V> {
         }
         return undefined;
     }
+    private async _checkCapacity(newNode: INode<V>) {
+        if(this.charsCapacity !== undefined && this.charsCapacity > 0){
+            const currentCharsSize = await this._getCharsSize();
+            const estimatedNewNodeSize = this._getNewNodeEstimatedSize(newNode.key, newNode.value)
+            let removedItems = 0;
+            let removedChars = 0;
+            while(currentCharsSize+estimatedNewNodeSize-removedChars>this.charsCapacity){
+                const removedItem = await this._removeHead();
+                removedItems+=1;
+                removedChars+=(removedItem ? this._getNodeCharsSize(removedItem) : 0);
+            }
+            await this._decreaseSize(removedItems);
+            await this._decreaseCharsSize(removedChars);
+        }
+        const length = await this._getSize();
+        if (length + 1 > this.capacity) {
+            await this._removeHead();
+            await this._decreaseSize();
+        }
+    }
+    private _getNodeCharsSize(node: INode<V>): number {
+        return JSON.stringify(node).length + node.key.length;
+    }
+    private _getNewNodeEstimatedSize(key: string, value: V) {
+        return this._getNodeCharsSize({
+            key,
+            value,
+            next: key,
+            prev: key
+        });
+    }
+    private async _addNewNode(key: string, value: V) {
+        const newNode = {
+            value,
+            key,
+        };
+        const isFirstElement = !(await this._getSize());
+        if (isFirstElement) {
+            await this._initialize(newNode);
+            await this._increaseSize();
+            await this._increaseCharsSize(this._getNewNodeEstimatedSize(key, value));
+            return;
+        }
+        await this._checkCapacity(newNode);
+        await this._setTail(newNode);
+        await this._increaseSize();
+        await this._increaseCharsSize(this._getNewNodeEstimatedSize(key, value));
+    }
     async set(key: string, value: V): Promise<void> {
         const currentNode = await this._getNode(key);
         if (currentNode !== undefined) {
@@ -168,23 +237,7 @@ export class LRUCache<V> {
             await this.get(key);
             return;
         }
-        const newNode = {
-            value,
-            key,
-        };
-        const isFirstElement = !(await this._getSize());
-        if (isFirstElement) {
-            await this._initialize(newNode);
-            await this._increaseSize();
-            return;
-        }
-        await this._setTail(newNode);
-        const storageSize = await this._getSize();
-        if (storageSize + 1 > this.capacity) {
-            await this._removeHead();
-            return;
-        }
-        await this._increaseSize();
+        await this._addNewNode(key, value);
     }
     async *entries() {
         let currentNode = await this._getTail();
