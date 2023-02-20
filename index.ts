@@ -15,12 +15,31 @@ interface INode<V> {
 
 export const generateKey = (str: string) => String(md5(str));
 
-export function memoize({
+interface ICache<T> {
+    get(key: string): string | undefined | Promise<string | undefined>;
+    set(key: string, value: T): this | void | Promise<void>;
+}
+
+interface Logger {
+    cacheUsed?: (...value: unknown[]) => void;
+    funcCalled?: (...value: unknown[]) => void;
+    error?: (error: Error, ...value: unknown[]) => void;
+}
+
+interface Memoize<T> {
+    func: (...value: unknown[]) => T;
+    keyResolver?: (...value: unknown[]) => string;
+    cache: ICache<T>;
+    logger?: Logger;
+}
+
+export function memoize<T>({
     func,
     keyResolver,
     cache,
-    logger = {cacheUsed: ()=>{}, funcCalled: ()=>{}, error: () => {}}
-}: any) {
+    logger,
+}: Memoize<T>) {
+    const { cacheUsed = () => {}, funcCalled = () => {}, error: logError = () => {} } = logger || {};
     if (
         typeof func != 'function' ||
         (keyResolver != null && typeof keyResolver != 'function')
@@ -30,25 +49,29 @@ export function memoize({
     if ((cache != null && (typeof cache.get != 'function' || typeof cache.set != 'function'))) {
         throw new TypeError('Expected cache');
     }
-    if(!logger || typeof logger.cacheUsed != 'function' || typeof logger.funcCalled != 'function' || typeof logger.error != 'function'){
+    if(!logger || typeof cacheUsed != 'function' || typeof funcCalled != 'function' || typeof logError != 'function'){
         throw new TypeError('Expected logger.cacheUsed, logger.funcCalled and logger.error must be functions');
     }
-    const memoized: any = async function (...args: any[]) {
+    const memoized = async function (...args: unknown[]) {
         let functionResult;
-        try {            
+        try {
             const key = keyResolver ? keyResolver(...args) : generateKey(JSON.stringify(args));
             const valueFromCache = await cache.get(key);
             if (valueFromCache) {
-                logger?.cacheUsed(...args);
+                cacheUsed(...args);
                 return valueFromCache;
             }
-            logger?.funcCalled(...args);
+            funcCalled(...args);
             functionResult = await func(...args);
             await cache.set(key, functionResult);
         } catch (error) {
-            logger?.error(error, ...args);
+            logError(error as Error, ...args);
         }
-        return functionResult || func(...args);
+        if (functionResult) {
+            return functionResult;
+        }
+        funcCalled(...args)
+        return func(...args);
     };
     return memoized;
 }
