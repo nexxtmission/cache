@@ -16,7 +16,7 @@ interface INode<V> {
 export const generateKey = (str: string) => String(md5(str));
 
 interface ICache<T> {
-    get(key: string): string | undefined | Promise<string | undefined>;
+    get(key: string): T | undefined | Promise<T | undefined>;
     set(key: string, value: T): this | void | Promise<void>;
 }
 
@@ -27,8 +27,8 @@ interface Logger {
 }
 
 interface Memoize<T> {
-    func: (...value: unknown[]) => T;
-    keyResolver?: (...value: unknown[]) => string;
+    func: (...value: any[]) => T | Promise<T>;
+    keyResolver?: (...value: any[]) => string;
     cache: ICache<T>;
     logger?: Logger;
 }
