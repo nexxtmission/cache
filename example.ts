@@ -50,20 +50,27 @@ const expensiveCalculation = async (arg1: number, arg2: number) => {
 }
 
 (async () => {    
-    const cache = new LRUCache(new Map(), 5); // a new Map() and capacity 100 is used by default
-    const expensiveCalculationMemoized = memoize({
+    const cache1 = new LRUCache<number>(new Map(), 5);
+    const cache2 = new LRUCache<number>(new Map(), 5, 5000);
+    const expensiveCalculationMemoized1 = memoize<number, [number, number]>({
         func: expensiveCalculation,
-        cache,
+        cache: cache2,
+        keyResolver: (arg1: number, arg2: number) => '1',
+    });
+    const expensiveCalculationMemoized2 = memoize<number>({
+        func: expensiveCalculation,
+        cache: cache1,
+        keyResolver: (arg1: number, arg2: number) => '1',
     });
 
-    console.log(await expensiveCalculationMemoized(1, 2)); // calling expensiveCalculation and caching the result
-    console.log(await expensiveCalculationMemoized(1, 2)); // using cached result
-    console.log(await expensiveCalculationMemoized(1, 3)); // calling expensiveCalculation and caching the result
-    console.log(await expensiveCalculationMemoized(1, 3)); // using cached result
-    console.log(await expensiveCalculationMemoized(1, 4)); // calling expensiveCalculation and caching the result
-    console.log(await expensiveCalculationMemoized(1, 4)); // using cached result
-    console.log(await expensiveCalculationMemoized(1, 5)); // calling expensiveCalculation and caching the result, key [1, 2] is removed from cache
-    console.log(await expensiveCalculationMemoized(1, 5)); // using cached result
-    console.log(await expensiveCalculationMemoized(1, 2)); // calling expensiveCalculation and caching the result again
-    console.log(await expensiveCalculationMemoized(1, 2)); // using cached result
+    console.log(await expensiveCalculationMemoized1(1, 2)); // calling expensiveCalculation and caching the result
+    console.log(await expensiveCalculationMemoized1(1, 2)); // using cached result
+    console.log(await expensiveCalculationMemoized1(1, 3)); // calling expensiveCalculation and caching the result
+    console.log(await expensiveCalculationMemoized1(1, 3)); // using cached result
+    console.log(await expensiveCalculationMemoized1(1, 4)); // calling expensiveCalculation and caching the result
+    console.log(await expensiveCalculationMemoized1(1, 4)); // using cached result
+    console.log(await expensiveCalculationMemoized1(1, 5)); // calling expensiveCalculation and caching the result, key [1, 2] is removed from cache
+    console.log(await expensiveCalculationMemoized1(1, 5)); // using cached result
+    console.log(await expensiveCalculationMemoized1(1, 2)); // calling expensiveCalculation and caching the result again
+    console.log(await expensiveCalculationMemoized1(1, 2)); // using cached result
 })()
