@@ -26,19 +26,19 @@ interface Logger {
     error?: (error: Error, ...value: unknown[]) => void;
 }
 
-interface Memoize<T> {
-    func: (...value: any[]) => T | Promise<T>;
-    keyResolver?: (...value: any[]) => string;
+interface Memoize<T, P extends unknown[]> {
+    func: (...value: P) => T | Promise<T>;
+    keyResolver?: (...value: P) => string;
     cache: ICache<T>;
     logger?: Logger;
 }
 
-export function memoize<T>({
+export function memoize<T, P extends unknown[] = any[]>({
     func,
     keyResolver,
     cache,
     logger,
-}: Memoize<T>) {
+}: Memoize<T, P>) {
     const { cacheUsed = () => {}, funcCalled = () => {}, error: logError = () => {} } = logger || {};
     if (
         typeof func != 'function' ||
@@ -49,10 +49,10 @@ export function memoize<T>({
     if ((cache != null && (typeof cache.get != 'function' || typeof cache.set != 'function'))) {
         throw new TypeError('Expected cache');
     }
-    if(!logger || typeof cacheUsed != 'function' || typeof funcCalled != 'function' || typeof logError != 'function'){
+    if(typeof cacheUsed != 'function' || typeof funcCalled != 'function' || typeof logError != 'function'){
         throw new TypeError('Expected logger.cacheUsed, logger.funcCalled and logger.error must be functions');
     }
-    const memoized = async function (...args: unknown[]) {
+    const memoized = async function (...args: P) {
         let functionResult;
         try {
             const key = keyResolver ? keyResolver(...args) : generateKey(JSON.stringify(args));
